@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import get_settings
+from app.core.database import engine
 from app.core.logger import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     setup_logging(settings.LOG_LEVEL)
     logger.info("Application '%s' started (debug=%s)", settings.APP_NAME, settings.DEBUG)
     yield
+    await engine.dispose()
     logger.info("Application stopped")
 
 
