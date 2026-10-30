@@ -16,9 +16,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     setup_logging(settings.LOG_LEVEL)
     logger.info("Application '%s' started (debug=%s)", settings.APP_NAME, settings.DEBUG)
-    yield
-    await engine.dispose()
-    logger.info("Application stopped")
+    try:
+        yield
+    finally:
+        await engine.dispose()
+        logger.info("Application stopped")
 
 
 def create_app() -> FastAPI:
