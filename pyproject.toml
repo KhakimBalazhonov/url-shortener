@@ -7,6 +7,7 @@ dependencies = [
     "asyncpg>=0.32.0",
     "fastapi[standard]>=0.162.0",
     "pydantic-settings>=2.16.2",
+    "sqids>=0.5.2",
     "sqlalchemy[asyncio]>=2.1.6",
 ]
 
@@ -19,7 +20,7 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 100
+line-length = 110
 extend-exclude = ["migrations"]
 
 [tool.ruff.lint]

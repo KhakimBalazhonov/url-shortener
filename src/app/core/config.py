@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     ENVIRONMENT: Literal["local", "test", "production"] = "local"
+
+    SQIDS_ALPHABET: SecretStr
+
+    BASE_URL: HttpUrl
 
     POSTGRES_HOST: str
     POSTGRES_PORT: int

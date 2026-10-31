@@ -2,10 +2,13 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from starlette.responses import JSONResponse
 
+from app.api.link import router
 from app.core.config import get_settings
 from app.core.database import engine
+from app.core.exceptions import AppException
 from app.core.logger import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -37,3 +40,14 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+@app.exception_handler(AppException)
+async def business_error_handler(_: Request, exc: AppException) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.__class__.__name__, "message": exc.message},
+    )
+
+
+app.include_router(router)
