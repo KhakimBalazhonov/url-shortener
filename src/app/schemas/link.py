@@ -21,4 +21,4 @@ class LinkResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     short_url: str
-    expires_at: datetime | None
+    expires_at: datetime | None = None
