@@ -20,6 +20,7 @@ class LinkNotFoundError(AppException):
 class ShortCodeGenerationError(AppException):
     message = "Не удалось сгенерировать уникальный код ссылки"
 
+
 class SelfReferencingUrlError(AppException):
     status_code = 400
     message = "Нельзя сокращать ссылку на этот же сервис"

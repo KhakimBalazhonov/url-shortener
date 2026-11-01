@@ -6,8 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.exceptions import (
     LinkNotFoundError,
+    SelfReferencingUrlError,
     ShortCodeAlreadyExistsError,
-    ShortCodeGenerationError, SelfReferencingUrlError,
+    ShortCodeGenerationError,
 )
 from app.models import Link
 from app.repositories.link import LinkRepository
@@ -86,3 +87,9 @@ class LinkService:
         if link is None:
             raise LinkNotFoundError(f"Ссылка с кодом {short_code} не найдена или срок её действия истёк")
         return LinkStatsResponse.model_validate(link)
+
+    async def cleanup_expired_links(self) -> int:
+        deleted_count = await self._repo.delete_expired()
+        await self._session.commit()
+        logger.info("Удалено истекших ссылок: %s", deleted_count)
+        return deleted_count
