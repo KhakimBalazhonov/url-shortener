@@ -7,11 +7,11 @@ from app.core.config import get_settings
 from app.core.exceptions import (
     LinkNotFoundError,
     ShortCodeAlreadyExistsError,
-    ShortCodeGenerationError,
+    ShortCodeGenerationError, SelfReferencingUrlError,
 )
 from app.models import Link
 from app.repositories.link import LinkRepository
-from app.schemas.link import LinkCreateRequest, LinkResponse
+from app.schemas.link import LinkCreateRequest, LinkResponse, LinkStatsResponse
 from app.services.keygen import encode_id
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,15 @@ class LinkService:
 
     async def create_link(self, data: LinkCreateRequest) -> LinkResponse:
         is_custom_code = data.short_code is not None
+
+        url = data.original_url
+        base = settings.BASE_URL
+        base_url = str(base).rstrip("/")  # Убирает лишние слэши
+
+        # URL ведёт на сам сервис
+        if url.host == base.host and url.port == base.port:
+            logger.info("Попытка создания петлевой ссылки %s", data.original_url)
+            raise SelfReferencingUrlError()
 
         # Если клиент передал кастомный код, то попытка всего одна
         attempts = 1 if is_custom_code else MAX_ATTEMPTS
@@ -50,8 +59,7 @@ class LinkService:
 
             try:
                 await self._session.commit()
-                logger.info("Создана ссылка %s", short_code)
-                base_url = str(settings.BASE_URL).rstrip("/")  # Убирает лишние слэши
+                logger.info("Создана новая ссылка %s", short_code)
                 return LinkResponse(short_url=f"{base_url}/{link.short_code}", expires_at=link.expires_at)
             except IntegrityError as e:
                 await self._session.rollback()
@@ -69,6 +77,12 @@ class LinkService:
         logger.info("Переход по ссылке %s", short_code)
         original_url = await self._repo.resolve_and_count(short_code)
         if original_url is None:
-            raise LinkNotFoundError(f"Link '{short_code}' not found or expired")
+            raise LinkNotFoundError(f"Ссылка с кодом {short_code} не найдена или срок её действия истёк")
         await self._session.commit()  # Фиксирует инкремент счетчика в базе данных
         return original_url
+
+    async def get_stats(self, short_code: str) -> LinkStatsResponse:
+        link = await self._repo.get_by_short_code(short_code)
+        if link is None:
+            raise LinkNotFoundError(f"Ссылка с кодом {short_code} не найдена или срок её действия истёк")
+        return LinkStatsResponse.model_validate(link)

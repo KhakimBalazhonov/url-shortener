@@ -1,6 +1,6 @@
 from typing import cast
 
-from sqlalchemy import CursorResult, delete, func, or_, text, update
+from sqlalchemy import CursorResult, delete, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Link
@@ -35,3 +35,8 @@ class LinkRepository:
         stmt = delete(Link).where(Link.expires_at < func.now())
         result = cast(CursorResult, await self._session.execute(stmt))
         return result.rowcount
+
+    async def get_by_short_code(self, short_code: str) -> Link | None:
+        stmt = select(Link).where(Link.short_code == short_code)
+        result = await self._session.scalar(stmt)
+        return result

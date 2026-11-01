@@ -14,8 +14,12 @@ class ShortCodeAlreadyExistsError(AppException):
 
 class LinkNotFoundError(AppException):
     status_code = 404
-    message = "Ресурс не найден"
+    message = "Ссылка не найдена или срок её действия истек"
 
 
 class ShortCodeGenerationError(AppException):
     message = "Не удалось сгенерировать уникальный код ссылки"
+
+class SelfReferencingUrlError(AppException):
+    status_code = 400
+    message = "Нельзя сокращать ссылку на этот же сервис"

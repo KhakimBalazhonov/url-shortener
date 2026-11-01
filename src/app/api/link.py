@@ -2,7 +2,7 @@ from fastapi import APIRouter, status
 from starlette.responses import RedirectResponse
 
 from app.api.dependencies import LinkServiceDep
-from app.schemas.link import LinkCreateRequest, LinkResponse
+from app.schemas.link import LinkCreateRequest, LinkResponse, LinkStatsResponse
 
 router = APIRouter()
 
@@ -16,3 +16,8 @@ async def create_link(data: LinkCreateRequest, service: LinkServiceDep) -> LinkR
 async def get_original_url(short_code: str, service: LinkServiceDep) -> RedirectResponse:
     original_url = await service.get_target_url(short_code)
     return RedirectResponse(url=original_url, status_code=status.HTTP_302_FOUND)
+
+
+@router.get("/{short_code}/stats")
+async def get_stats(short_code: str, service: LinkServiceDep) -> LinkStatsResponse:
+    return await service.get_stats(short_code)
