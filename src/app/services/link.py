@@ -36,7 +36,7 @@ class LinkService:
         base_url = str(base).rstrip("/")  # Убирает лишние слэши
 
         # URL ведёт на сам сервис
-        if url.host == base.host and url.port == base.port:
+        if url.host == base.host:
             logger.info("Попытка создания петлевой ссылки %s", data.original_url)
             raise SelfReferencingUrlError()
 
