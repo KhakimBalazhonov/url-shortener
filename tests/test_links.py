@@ -1,6 +1,5 @@
 import re
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -242,6 +241,14 @@ async def test_create_link_validation_error(
     assert "detail" in response.json()
 
 
+class MockDBError(Exception):
+    """Имитация ошибки драйвера"""
+
+    def __init__(self, sqlstate: str) -> None:
+        super().__init__(sqlstate)
+        self.sqlstate = sqlstate
+
+
 async def test_generated_code_collision_returns_500_after_max_retries(
     client: AsyncClient,
 ) -> None:
@@ -253,7 +260,7 @@ async def test_generated_code_collision_returns_500_after_max_retries(
         side_effect=IntegrityError(
             statement="INSERT INTO links",
             params={},
-            orig=SimpleNamespace(sqlstate="23505"),
+            orig=MockDBError("23505"),
         ),
     ) as commit_mock:
         response = await client.post(
