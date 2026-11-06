@@ -11,8 +11,8 @@ x-app: &app
       condition: service_healthy
     redis:
       condition: service_healthy
-  volumes:
-    - ./src:/app/src # bind mount
+  # volumes:
+    # - ./src:/app/src # bind mount
 
 services:
   postgres:
@@ -47,13 +47,13 @@ services:
   app:
     <<: *app
     entrypoint: [ "/app/entrypoint.sh" ]
-    # command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*" ]
-    command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src" ] # bind mount
+    command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*", "--workers", "4" ]
+    # command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src" ] # Автоперезапуск при изменениях
 
   celery_worker:
     <<: *app
-    # command: celery -A app.tasks.celery_app worker -l info
-    command: watchfiles "celery -A app.tasks.celery_app worker -l info" /app/src # bind mount
+    command: celery -A app.tasks.celery_app worker -l info
+    # command: watchfiles "celery -A app.tasks.celery_app worker -l info" /app/src  # Автоперезапуск при изменениях
 
   celery_beat:
     <<: *app
