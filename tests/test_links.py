@@ -199,6 +199,30 @@ async def test_get_stats(client: AsyncClient) -> None:
     assert not_found.json()["error"] == "LinkNotFoundError"
 
 
+async def test_cannot_get_expired_stats(
+    client: AsyncClient,
+    test_db_session: AsyncSession,
+) -> None:
+    """Просроченная ссылка не отдает статистику"""
+    payload = {
+        "original_url": "https://example.com/",
+        "short_code": "will-expire",
+        "expires_at": "2060-01-01T00:00:00.00Z",
+    }
+    response = await client.post("/shorten", json=payload)
+    assert response.status_code == 201, response.text
+
+    # Изменяет дату на просроченную
+    await test_db_session.execute(
+        update(Link).where(Link.short_code == "will-expire").values(expires_at=datetime(2010, 1, 1, tzinfo=UTC))
+    )
+    await test_db_session.commit()
+
+    response = await client.get("/will-expire/stats")
+    assert response.status_code == 404, response.text
+    assert response.json()["error"] == "LinkNotFoundError"
+
+
 @pytest.mark.parametrize(
     "original_url, short_code, expires_at",
     [
