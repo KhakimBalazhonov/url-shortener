@@ -5,14 +5,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import AsyncClient
 from redis.asyncio import Redis
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models import Link
 from app.repositories.link import LinkRepository
-from app.services.link import LinkService
+from app.services.link import NOT_FOUND, LinkService
 
 settings = get_settings()
 
@@ -195,6 +195,37 @@ async def test_redirect_counts_clicks_in_redis_and_syncs_to_db(
 
     # В редис буфер очищен
     assert await test_redis.get("clicks:my-code") is None
+
+
+async def test_redirect_is_served_from_cache(client: AsyncClient, test_db_session: AsyncSession) -> None:
+    """Повторный переход берётся из кеша: ссылка отдаётся, даже если строки в БД уже нет"""
+    payload = {"original_url": "https://example.com/cached", "short_code": "cached-code"}
+    response = await client.post("/shorten", json=payload)
+    assert response.status_code == 201, response.text
+
+    first = await client.get("/cached-code")  # Читает БД и заполняет кеш
+    assert first.status_code == 302, first.text
+
+    await test_db_session.execute(delete(Link).where(Link.short_code == "cached-code"))
+    await test_db_session.commit()
+
+    second = await client.get("/cached-code")
+    assert second.status_code == 302, second.text
+    assert second.headers["location"] == "https://example.com/cached"
+
+
+async def test_not_found_marker_is_reset_on_create(client: AsyncClient, test_redis: Redis) -> None:
+    """Метка __NOT_FOUND__ не мешает переходу по только что созданной ссылке"""
+    missing = await client.get("/my-code")
+    assert missing.status_code == 404, missing.text
+    assert await test_redis.get("link:my-code") == NOT_FOUND
+
+    payload = {"original_url": "https://example.com/", "short_code": "my-code"}
+    response = await client.post("/shorten", json=payload)
+    assert response.status_code == 201, response.text
+
+    response = await client.get("/my-code")
+    assert response.status_code == 302, response.text
 
 
 async def test_get_stats(client: AsyncClient) -> None:
