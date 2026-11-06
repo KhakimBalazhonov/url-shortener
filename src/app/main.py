@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 
 from app.api.link import router
+from app.core.cache import redis_client
 from app.core.config import get_settings
 from app.core.database import engine
 from app.core.exceptions import AppException
@@ -23,6 +24,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await engine.dispose()
+        await redis_client.aclose()
         logger.info("Приложение остановлено")
 
 

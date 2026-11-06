@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     REDIS_PORT: int
     REDIS_PASSWORD: SecretStr
 
+    CACHE_TTL_SECONDS: int = 3600  # Максимальное время хранения ссылки в кеше
+    CACHE_MISS_TTL_SECONDS: int = 60  # TTL для кеширования отсутствующих коротких кодов
+
     @property
     def database_url(self) -> str:
         return (
@@ -38,6 +41,10 @@ class Settings(BaseSettings):
     @property
     def celery_broker_url(self) -> str:
         return f"redis://default:{self.REDIS_PASSWORD.get_secret_value()}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+
+    @property
+    def cache_url(self) -> str:
+        return f"redis://default:{self.REDIS_PASSWORD.get_secret_value()}@{self.REDIS_HOST}:{self.REDIS_PORT}/1"
 
     @property
     def is_prod(self) -> bool:
