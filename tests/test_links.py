@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
+from redis.asyncio import Redis
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -146,9 +147,10 @@ async def test_reserved_slugs_validation(client: AsyncClient, slug: str) -> None
     assert "detail" in response.json()
 
 
-async def test_resolve_and_count(
+async def test_redirect_counts_clicks_in_redis_and_syncs_to_db(
     client: AsyncClient,
     test_db_session: AsyncSession,
+    test_redis: Redis,
 ) -> None:
     """
     Проверка редиректа 302 с корректным Location заголовком
@@ -159,17 +161,40 @@ async def test_resolve_and_count(
     assert response.status_code == 201, response.text
 
     # Начальное значение кликов
-    initial_clicks = await test_db_session.scalar(select(Link.clicks_count).where(Link.short_code == "my-code"))
-    assert initial_clicks == 0
+    initial_db_clicks = await test_db_session.scalar(select(Link.clicks_count).where(Link.short_code == "my-code"))
+    assert initial_db_clicks == 0
+    assert await test_redis.get("clicks:my-code") is None
 
     # Переход по ссылке
     response = await client.get("/my-code")
     assert response.status_code == 302, response.text
     assert response.headers["location"] == "https://example.com/target"
 
-    # Счетчик кликов
+    # В Postgres по-прежнему 0
+    db_clicks_after_redirect = await test_db_session.scalar(
+        select(Link.clicks_count).where(Link.short_code == "my-code")
+    )
+    assert db_clicks_after_redirect == 0
+
+    # Счетчик кликов в редис
+    redis_clicks = await test_redis.get("clicks:my-code")
+    assert int(redis_clicks) == 1
+
+    # Эндпоинт статистики сразу видит этот клик в реальном времени
+    stats_res = await client.get("/my-code/stats")
+    assert stats_res.status_code == 200
+    assert stats_res.json()["clicks_count"] == 1
+
+    # Запускает синхронизацию (имитация фонового Celery)
+    service = LinkService(test_db_session, test_redis, LinkRepository(test_db_session))
+    await service.sync_clicks()
+
+    # Счетчик кликов в бд
     updated_clicks = await test_db_session.scalar(select(Link.clicks_count).where(Link.short_code == "my-code"))
     assert updated_clicks == 1
+
+    # В редис буфер очищен
+    assert await test_redis.get("clicks:my-code") is None
 
 
 async def test_get_stats(client: AsyncClient) -> None:
@@ -195,7 +220,7 @@ async def test_get_stats(client: AsyncClient) -> None:
 
     # Несуществующая ссылка
     not_found = await client.get("/missing-code/stats")
-    assert not_found.status_code == 404, response.text
+    assert not_found.status_code == 404, not_found.text
     assert not_found.json()["error"] == "LinkNotFoundError"
 
 
@@ -328,8 +353,7 @@ async def test_collision_success_on_retry(client: AsyncClient) -> None:
 
 
 async def test_cleanup_deletes_only_expired_links(
-    client: AsyncClient,
-    test_db_session: AsyncSession,
+    client: AsyncClient, test_db_session: AsyncSession, test_redis: Redis
 ) -> None:
     """
     Проверка периодической очистки:
@@ -372,7 +396,7 @@ async def test_cleanup_deletes_only_expired_links(
     await test_db_session.commit()
 
     # Запуск очистки
-    service = LinkService(test_db_session, LinkRepository(test_db_session))
+    service = LinkService(test_db_session, test_redis, LinkRepository(test_db_session))
     deleted_count = await service.cleanup_expired_links()
     assert deleted_count == 1
 

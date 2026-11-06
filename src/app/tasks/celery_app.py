@@ -8,7 +8,7 @@ settings = get_settings()
 celery_app = Celery(
     "url_shortener",
     broker=settings.celery_broker_url,
-    include=["app.tasks.cleanup"],
+    include=["app.tasks.cleanup", "app.tasks.sync_clicks"],
 )
 
 celery_app.conf.update(
@@ -19,6 +19,10 @@ celery_app.conf.update(
         "cleanup-expired-links-every-30-minutes": {
             "task": "app.tasks.cleanup_expired_links",
             "schedule": crontab(minute="*/30"),
+        },
+        "sync-clicks-every-minute": {
+            "task": "app.tasks.sync_clicks",
+            "schedule": crontab(minute="*/1"),
         },
     },
 )

@@ -4,6 +4,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncEngine,
@@ -12,7 +13,9 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.redis import RedisContainer
 
+from app.core.cache import get_redis
 from app.core.database import get_db
 from app.main import app
 
@@ -78,12 +81,30 @@ async def test_db_session(
         yield session
 
 
+@pytest.fixture(scope="session")
+def redis_url():
+    with RedisContainer("redis:7-alpine") as r:
+        yield f"redis://{r.get_container_host_ip()}:{r.get_exposed_port(6379)}/1"
+
+
 @pytest.fixture
-async def client(test_db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
+async def test_redis(redis_url: str) -> AsyncIterator[Redis]:
+    redis = Redis.from_url(redis_url, decode_responses=True)
+    await redis.flushdb()  # кеш не должен переходить из теста в тест
+    yield redis
+    await redis.aclose()
+
+
+@pytest.fixture
+async def client(test_db_session: AsyncSession, test_redis: Redis) -> AsyncIterator[AsyncClient]:
     async def _override_get_db() -> AsyncIterator[AsyncSession]:
         yield test_db_session
 
+    async def _override_get_redis() -> AsyncIterator[Redis]:
+        yield test_redis
+
     app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_redis] = _override_get_redis
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac

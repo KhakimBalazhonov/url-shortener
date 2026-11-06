@@ -30,6 +30,21 @@ k6 run -e VUS=200 loadtest/read_many.js
 
 При каждом переходе по короткой ссылке  (`GET /{short_code}`) сервис выполняет операцию обновления счетчика в базе данных (`UPDATE links SET clicks_count = clicks_count + 1 ...`) и фиксирует транзакцию.
 
+```
+async def resolve_and_count(self, short_code: str) -> str | None:
+    stmt = (
+        update(Link)
+        .where(
+            Link.short_code == short_code, 
+            or_(Link.expires_at.is_(None), Link.expires_at > func.now())
+        )
+        .values(clicks_count=Link.clicks_count + 1)
+        .returning(Link.original_url)
+    )
+
+    return await self._session.scalar(stmt)
+```
+
 ### Тест 1. Многократный переход по одной и той же ссылке (скрипт `read.js`)
 
 Все 200 пользователей непрерывно запрашивают одну и ту же ссылку (`/bench-link`).
