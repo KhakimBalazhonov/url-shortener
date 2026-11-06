@@ -88,7 +88,7 @@ class LinkService:
         if cached_url == NOT_FOUND:
             raise LinkNotFoundError(f"Ссылка с кодом {short_code} не найдена или срок ее действия истек")
 
-        if cached_url is not None:
+        if isinstance(cached_url, str):
             logger.debug("Короткая ссылка %s найдена в кеше", short_code)
             await self._redis.incr(f"clicks:{short_code}")
             return cached_url

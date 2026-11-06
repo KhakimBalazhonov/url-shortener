@@ -177,8 +177,7 @@ async def test_redirect_counts_clicks_in_redis_and_syncs_to_db(
     assert db_clicks_after_redirect == 0
 
     # Счетчик кликов в редис
-    redis_clicks = await test_redis.get("clicks:my-code")
-    assert int(redis_clicks) == 1
+    assert await test_redis.get("clicks:my-code") == "1"
 
     # Эндпоинт статистики сразу видит этот клик в реальном времени
     stats_res = await client.get("/my-code/stats")
