@@ -1,0 +1,73 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: "3.14"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  lint-and-typecheck:
+    name: Code Quality & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Вызывает action.yml для настройки окружения
+      - name: Setup project
+        uses: ./.github/actions/setup-project
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run Ruff Lint
+        run: uv run ruff check
+
+      - name: Run Ruff Format Check
+        run: uv run ruff format --check
+
+      - name: Run Pyright Type Checker
+        run: uv run pyright
+
+  test:
+    name: Integration Tests (Testcontainers)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup project
+        uses: ./.github/actions/setup-project
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run Pytest with Coverage
+        run: uv run pytest --cov=src/app --cov-report=term-missing --cov-fail-under=70
+
+  # CD: сборка и публикация Docker-образа в GHCR
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and Push Docker image
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"  # ,, переводит имя в нижний регистр
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker build -t "$IMAGE:latest" -t "$IMAGE:${{ github.sha }}" .
+          docker push --all-tags "$IMAGE"
