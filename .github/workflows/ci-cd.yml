@@ -2,14 +2,15 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+permissions:
+  contents: read
 
 env:
   PYTHON_VERSION: "3.14"
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   lint-and-typecheck:
@@ -20,7 +21,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Вызывает action.yml для настройки окружения
       - name: Setup project
         uses: ./.github/actions/setup-project
         with:
@@ -38,6 +38,19 @@ jobs:
   test:
     name: Integration Tests (Testcontainers)
     runs-on: ubuntu-latest
+    env:
+      # В CI нет файла .env, без этих настроек приложение выдаст ошибку
+      # В тестах база и редис берутся из testcontainers, а не по этим адресам
+      SQIDS_ALPHABET: ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponmlkjihgfedcba9876543210
+      BASE_URL: http://localhost
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci_password
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB_NAME: shortener
+      REDIS_HOST: localhost
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ci_password
 
     steps:
       - name: Checkout repository
