@@ -8,7 +8,7 @@ inputs:
     default: "3.14"
 
 runs:
-  using: composite
+  using: composite  # Указывает, что это составной экшен — повторяющийся набор шагов, который переиспользуется в ci.yml
   steps:
     - name: Install uv
       uses: astral-sh/setup-uv@v6
@@ -16,7 +16,7 @@ runs:
         enable-cache: true
 
     - name: Set up Python
-      shell: bash
+      shell: bash  # В composite экшенах обязательно указывать shell
       run: uv python install ${{ inputs.python-version }}
 
     - name: Install dependencies

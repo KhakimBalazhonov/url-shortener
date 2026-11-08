@@ -197,7 +197,7 @@ async def test_redirect_counts_clicks_in_redis_and_syncs_to_db(
 
 
 async def test_redirect_is_served_from_cache(client: AsyncClient, test_db_session: AsyncSession) -> None:
-    """Повторный переход берётся из кеша: ссылка отдаётся, даже если строки в БД уже нет"""
+    """Повторный переход берется из кеша: ссылка отдается, даже если строки в БД уже нет"""
     payload = {"original_url": "https://example.com/cached", "short_code": "cached-code"}
     response = await client.post("/shorten", json=payload)
     assert response.status_code == 201, response.text
@@ -214,7 +214,7 @@ async def test_redirect_is_served_from_cache(client: AsyncClient, test_db_sessio
 
 
 async def test_not_found_marker_is_reset_on_create(client: AsyncClient, test_redis: Redis) -> None:
-    """Метка __NOT_FOUND__ не мешает переходу по только что созданной ссылке"""
+    """Сбрасывает метку __NOT_FOUND__ в кеше при создании ссылки с тем же кодом"""
     missing = await client.get("/my-code")
     assert missing.status_code == 404, missing.text
     assert await test_redis.get("link:my-code") == NOT_FOUND
@@ -408,7 +408,7 @@ async def test_cleanup_deletes_only_expired_links(
     )
     assert res2.status_code == 201, res2.text
 
-    # Временная ссылка с будущим сроком действия, которая позже изменится на истекший
+    # Временная ссылка с будущим сроком действия (ниже изменится на истекший)
     res3 = await client.post(
         "/shorten",
         json={

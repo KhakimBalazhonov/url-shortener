@@ -9,10 +9,15 @@ from app.tasks.celery_app import celery_app
 
 @celery_app.task(name="app.tasks.sync_clicks")
 def sync_clicks() -> int:
+    """
+    Запускает асинхронную функцию из синхронной задачи Celery
+    asyncio.run() создаёт event loop, необходимый для работы с асинхронной БД
+    """
     return asyncio.run(_run())
 
 
 async def _run() -> int:
+    """Сохраняет накопленные клики из Redis в БД и возвращает количество обновленных ссылок"""
     try:
         async with session_factory() as session:
             service = LinkService(session, redis_client, LinkRepository(session))

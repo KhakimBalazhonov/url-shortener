@@ -1,6 +1,7 @@
 x-app: &app
   build: .
   image: shortener_app:1
+  # image: ghcr.io/khakimbalazhonov/url-shortener:latest
   env_file: .env
   restart: unless-stopped
   environment:
@@ -21,6 +22,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
     ports:
+      # Пробрасывает порт на хост только для локальной разработки
       - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
@@ -46,7 +48,7 @@ services:
 
   app:
     <<: *app
-    entrypoint: [ "/app/entrypoint.sh" ]
+    entrypoint: [ "/app/entrypoint.sh" ] # Скрипт миграции
     command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*", "--workers", "4" ]
     # command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src" ] # Автоперезапуск при изменениях
 

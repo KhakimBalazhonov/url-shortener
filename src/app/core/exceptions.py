@@ -3,6 +3,7 @@ class AppException(Exception):
     message: str = "Внутренняя ошибка сервера"
 
     def __init__(self, message: str | None = None) -> None:
+        # Позволяет переопределить стандартное сообщение об ошибке при создании исключения
         self.message = message or self.message
         super().__init__(self.message)
 

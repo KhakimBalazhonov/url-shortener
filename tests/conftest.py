@@ -50,7 +50,7 @@ async def test_engine(pg_url: str, migrated_db: None) -> AsyncIterator[AsyncEngi
 async def test_db_connection(test_engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
     """
     Открывает соединение и транзакцию
-    После каждого теста откатывает транзакцию, гарантируя изоляцию.
+    После каждого теста откатывает транзакцию, гарантируя изоляцию
     """
     async with test_engine.connect() as conn:
         transaction = await conn.begin()
@@ -82,13 +82,15 @@ async def test_db_session(
 
 
 @pytest.fixture(scope="session")
-def redis_url():
+def redis_url() -> Iterator[str]:
+    """Запускает изолированный контейнер Redis на сессию тестов"""
     with RedisContainer("redis:7-alpine") as r:
         yield f"redis://{r.get_container_host_ip()}:{r.get_exposed_port(6379)}/1"
 
 
 @pytest.fixture
 async def test_redis(redis_url: str) -> AsyncIterator[Redis]:
+    """Клиент Redis для тестов"""
     redis = Redis.from_url(redis_url, decode_responses=True)
     await redis.flushdb()  # кеш не должен переходить из теста в тест
     yield redis
@@ -97,6 +99,8 @@ async def test_redis(redis_url: str) -> AsyncIterator[Redis]:
 
 @pytest.fixture
 async def client(test_db_session: AsyncSession, test_redis: Redis) -> AsyncIterator[AsyncClient]:
+    """Тестовый HTTP-клиент с подменой базы и кеша"""
+
     async def _override_get_db() -> AsyncIterator[AsyncSession]:
         yield test_db_session
 

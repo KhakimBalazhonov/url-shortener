@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     ENVIRONMENT: Literal["local", "test", "production"] = "local"
 
-    SQIDS_ALPHABET: SecretStr
+    SQIDS_ALPHABET: SecretStr  # Алфавит для генерации коротких кодов
 
     BASE_URL: HttpUrl
 

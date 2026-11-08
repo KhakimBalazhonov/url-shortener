@@ -7,6 +7,16 @@ RESERVED_SLUGS = frozenset({"docs", "redoc", "shorten", "api", "health", "metric
 
 
 class LinkCreateRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "original_url": "https://example.com/very-long-and-complex-url",
+                "short_code": "my-promo",
+                "expires_at": "2030-12-31T23:59:59Z",
+            }
+        }
+    )
+
     original_url: Annotated[HttpUrl, Field(min_length=6, max_length=2048)]
     short_code: Annotated[str | None, Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")] = None
     expires_at: FutureDatetime | None = None
@@ -20,7 +30,7 @@ class LinkCreateRequest(BaseModel):
 
     @field_validator("short_code")
     @classmethod
-    def not_reserved(cls, v: str | None) -> str | None:
+    def validate_short_code_not_reserved(cls, v: str | None) -> str | None:
         if v is not None and v.lower() in RESERVED_SLUGS:
             raise ValueError("Этот код зарезервирован и недоступен для использования")
         return v
